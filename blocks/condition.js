@@ -1,27 +1,62 @@
 import { interpolate } from "../lib/vars.js";
 
-export default async function condition(node, req, res, context = {}) {
-  const { condition: condExpr } = node.data || {};
+export default {
+  name: "condition",
+  description: "Evaluates a logical expression and chooses a path",
+  schema: {
+    inputs: ["expression1", "comparison", "expression2"],
+    outputs: ["condition", "else"],
+    category: "logic",
+  },
 
-  if (!condExpr) {
-    console.warn("No condition specified in node", node.id);
-    return null;
-  }
+  async run(node, req, res, context = {}) {
+    const d = node.data || {};
 
-  // Use our helper to replace all {vars} in the expression
-  const replacedExpr = interpolate(condExpr, context);
+    // --- Helper: auto-detect strings/numbers ---
+    const smartValue = (val) => {
+      if (val === null || val === undefined) return '""'; // empty string fallback
+      val = val.toString().trim();
+      if (!isNaN(val)) return Number(val);              // numbers stay numbers
+      if (/^["'].*["']$/.test(val)) return val;         // already quoted
+      return `"${val}"`;                                 // wrap strings
+    };
 
-  let result = false;
-  try {
-    // Use Function constructor for safer evaluation
-    // Wrap in Boolean() to ensure a true/false result
-    result = Boolean(Function(`return (${replacedExpr})`)());
-  } catch (err) {
-    console.error("Error evaluating condition:", err, "Expression:", replacedExpr);
-  }
+    // --- Build expression ---
+    let expr = "";
+    if (d.expression1 && d.comparison && d.expression2) {
+      const left = smartValue(interpolate(d.expression1, context));
+      const right = smartValue(interpolate(d.expression2, context));
+      expr = `${left} ${d.comparison} ${right}`;
+    } else if (d.condition) {
+      expr = interpolate(d.condition, context)?.trim();
+    } else {
+      console.warn("⚠️ No condition specified in node", node.id);
+      context._lastCondition = false;
+      return { branch: "else", result: false };
+    }
 
-  // Store decision in context for downstream blocks
-  context._lastCondition = result;
+    // --- Validate expression ---
+    if (!expr || /^\W+$/.test(expr)) {
+      console.warn("⚠️ Invalid condition expression:", expr);
+      context._lastCondition = false;
+      return { branch: "else", result: false };
+    }
 
-  return null;
-}
+    // --- Safely evaluate ---
+    let result = false;
+    try {
+      result = Boolean(Function(`"use strict"; return (${expr});`)());
+    } catch (err) {
+      console.error("❌ Error evaluating condition:", err.message, "Expression:", expr);
+      result = false;
+    }
+
+    // --- Store result for downstream logic ---
+    context._lastCondition = result;
+
+    return {
+      branch: result ? "condition" : "else",
+      result,
+    };
+  },
+};

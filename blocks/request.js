@@ -1,53 +1,76 @@
 import fetch from "node-fetch";
 import { interpolate } from "../lib/vars.js";
 
-/**
- * Executes a RequestNode
- * Supports dynamic variables in URL, headers, and bodyParams using {var} syntax
- */
-export async function runRequestBlock(nodeData, context = {}) {
-  if (!nodeData.url) throw new Error("Request URL is required");
+export default {
+  name: "request",
+  description: "Performs an HTTP request with dynamic variables",
+  schema: {
+    inputs: ["url", "method", "headers", "bodyParams"],
+    outputs: ["response"],
+    category: "network",
+  },
 
-  const method = (nodeData.method || "GET").toUpperCase();
+  async run(node, req, res, context = {}) {
+    const data = node.data || {};
+    if (!data.url) throw new Error("Request URL is required");
 
-  // Interpolate URL with context
-  const url = interpolate(nodeData.url, context);
+    const method = (data.method || "GET").toUpperCase();
 
-  // Convert headers from array to object + interpolate
-  const headers = {};
-  (nodeData.headers || []).forEach(h => {
-    if (h.key) headers[h.key] = interpolate(h.value, context);
-  });
+    // Interpolate URL
+    const url = interpolate(data.url, context || {});
 
-  // Convert bodyParams array to object + interpolate
-  let body = null;
-  if (method !== "GET" && method !== "HEAD" && nodeData.bodyParams?.length) {
-    body = {};
-    nodeData.bodyParams.forEach(p => {
-      if (p.key) body[p.key] = interpolate(p.value, context);
+    // Build headers object
+    const headers = {};
+    (data.headers || []).forEach(h => {
+      if (h.key) headers[h.key] = interpolate(h.value, context || {});
     });
 
-    // default to JSON if no explicit content-type
-    if (!headers["Content-Type"]) headers["Content-Type"] = "application/json";
-  }
-
-  try {
-    const res = await fetch(url, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-    });
-
-    const contentType = res.headers.get("content-type");
-    let parsedBody;
-    if (contentType?.includes("application/json")) {
-      parsedBody = await res.json();
-    } else {
-      parsedBody = await res.text();
+    // Build body
+    let body = null;
+    if (method !== "GET" && method !== "HEAD" && data.bodyParams?.length) {
+      body = {};
+      data.bodyParams.forEach(p => {
+        if (p.key) body[p.key] = interpolate(p.value, context || {});
+      });
+      if (!headers["Content-Type"]) headers["Content-Type"] = "application/json";
     }
 
-    return { status: res.status, ok: res.ok, body: parsedBody };
-  } catch (err) {
-    return { status: 500, ok: false, body: { error: err.message } };
-  }
-}
+    // Perform request
+    try {
+      const response = await fetch(url, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+
+      const contentType = response.headers.get("content-type");
+      let parsedBody;
+      if (contentType?.includes("application/json")) {
+        parsedBody = await response.json();
+      } else {
+        parsedBody = await response.text();
+      }
+
+      const result = {
+        status: response.status,
+        ok: response.ok,
+        body: parsedBody,
+      };
+
+      // Store results in context for later blocks
+      const key = data.request_name || node.id;
+      context.variables[key] = result;
+      context.variables[`${key}.body`] = result.body;
+
+      return { output: result };
+    } catch (err) {
+      const errorResult = {
+        status: 500,
+        ok: false,
+        body: { error: err.message },
+      };
+      console.error("Request block error:", err);
+      return { output: errorResult };
+    }
+  },
+};

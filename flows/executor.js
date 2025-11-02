@@ -1,49 +1,95 @@
-import respond from "../blocks/respond.js";
-import condition from "../blocks/condition.js";
-import { runRequestBlock } from "../blocks/request.js";
+import { interpolate } from "../lib/vars.js";
+import startBlock from "../blocks/start.js";
+import respondBlock from "../blocks/respond.js";
+import requestBlock from "../blocks/request.js";
+import conditionBlock from "../blocks/condition.js";
+import setVarBlock from "../blocks/setVar.js";
+import manipulateTextBlock from "../blocks/manipulateText.js";
 
-const blockHandlers = {
-  respond,
-  condition,
-  request: async (node, req, res, context) => {
-    const result = await runRequestBlock(node.data, context);
-
-    // Use block name if available, fallback to node ID
-    const key = node.data.request_name || node.id;
-
-    context[key] = result;                  // full result
-    context[`${key}.body`] = result.body;   // shortcut for body
-
-    return result;
-  }
+/* -------------------------
+   1️⃣  Centralized block registry
+------------------------- */
+const BLOCKS = {
+  start: startBlock,
+  respond: respondBlock,
+  condition: conditionBlock,
+  request: requestBlock,
+  setVar: setVarBlock,
+  manipulateText: manipulateTextBlock,
 };
 
+/* -------------------------
+   2️⃣  Core flow executor
+------------------------- */
 export async function runFlow(node, req, res, context = {}) {
-  let outputs = [];
-  if (!node) return outputs;
+  if (!node) return [];
 
-  // merge query params into shared context
-  Object.assign(context, req.query);
+  // Ensure context variables exist
+  if (!context.variables) context.variables = {};
 
-  const handler = blockHandlers[node.type];
-  if (handler) {
-    await handler(node, req, res, context);
-
-    if (node.type === "respond") {
-      outputs.push(node.data.message);
+  // Initialize context once (root-level defaults + query params)
+  if (!context._varsInitialized) {
+    context._varsInitialized = true;
+  
+    // Ensure sections exist
+    if (!context.variables) context.variables = {};
+    if (!context.params) context.params = {};
+  
+    const startNode = context.flow || node;
+    const defaults = startNode.data?.queryParams || [];
+  
+    // Load flow defaults into params
+    for (const p of defaults) {
+      if (p.key && p.default_value !== undefined) {
+        context.params[p.key] = p.default_value;
+      }
     }
+  
+    // Merge actual request query params (override defaults)
+    Object.assign(context.params, req.query);
+  }  
+
+  console.log(context.local, context.params);
+
+  let outputs = [];
+
+  /* -------------------------
+     3️⃣  Run current node
+  ------------------------- */
+  const block = BLOCKS[node.type];
+
+  if (block && typeof block.run === "function") {
+    const result = await block.run(node, req, res, context);
+
+    // Collect returned output (for chaining/logging/etc.)
+    if (result?.output !== undefined) outputs.push(result.output);
+  } else {
+    console.warn(`⚠️ No handler found for block type "${node.type}"`);
   }
 
+  /* -------------------------
+     4️⃣  Run child nodes recursively
+  ------------------------- */
   if (node.children?.length) {
     for (const child of node.children) {
-      if (node.type === "condition") {
-        if (context._lastCondition === true && child.data.path === "condition") {
-          outputs = outputs.concat(await runFlow(child, req, res, context));
-        } else if (context._lastCondition === false && child.data.path === "else") {
-          outputs = outputs.concat(await runFlow(child, req, res, context));
-        }
-      } else {
-        outputs = outputs.concat(await runFlow(child, req, res, context));
+      let shouldRun = true;
+
+      // Let block decide (e.g. condition chooses path)
+      if (typeof block?.shouldRunChild === "function") {
+        shouldRun = block.shouldRunChild(child, context);
+      } 
+      // Built-in condition fallback (for older condition nodes)
+      else if (node.type === "condition") {
+        const truePath = child.branch === "condition";
+        const falsePath = child.branch === "else";
+        shouldRun =
+          (context._lastCondition && truePath) ||
+          (!context._lastCondition && falsePath);
+      }
+
+      if (shouldRun) {
+        const childOutputs = await runFlow(child, req, res, context);
+        outputs = outputs.concat(childOutputs);
       }
     }
   }
