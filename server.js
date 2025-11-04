@@ -6,8 +6,42 @@ import { registerFlowRoutes } from "./flows/routes.js";
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// === Basic in-memory rate limiter ===
+const rateLimitMap = new Map();
+const LIMIT = 30; // max requests
+const WINDOW_MS = 60_000; // 1 minute
+
+app.use((req, res, next) => {
+  const ip =
+    req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+    req.connection.remoteAddress ||
+    "unknown";
+
+  const now = Date.now();
+  const record = rateLimitMap.get(ip) || { count: 0, start: now };
+
+  // Reset window
+  if (now - record.start > WINDOW_MS) {
+    record.count = 0;
+    record.start = now;
+  }
+
+  record.count++;
+  rateLimitMap.set(ip, record);
+
+  if (record.count > LIMIT) {
+    res.set("Retry-After", Math.ceil(WINDOW_MS / 1000));
+    return res
+      .status(429)
+      .json({ error: "Too many requests. Please wait a minute." });
+  }
+
+  next();
+});
+
+// === Register your dynamic flow routes ===
 (async () => {
-  await registerFlowRoutes(app); // fetch flows + register endpoints
+  await registerFlowRoutes(app);
 
   app.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
