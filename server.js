@@ -33,7 +33,14 @@ app.use((req, res, next) => {
     res.set("Retry-After", Math.ceil(WINDOW_MS / 1000));
     return res
       .status(429)
-      .json({ error: "Too many requests. Please wait a minute." });
+      .json({ 
+          success: false,
+          error: "Too many requests. Please wait 1 minute and try again.",
+          status: 429,
+          metadata: {
+            timestamp: new Date().toISOString(),
+          },
+      });
   }
 
   next();

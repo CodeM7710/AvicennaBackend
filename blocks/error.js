@@ -29,10 +29,7 @@ export default {
     const output = {
       success: false,
       status: code,
-      error: {
-        code,
-        message,
-      },
+      error: message,
       metadata: {
         timestamp: new Date().toISOString(),
       },
