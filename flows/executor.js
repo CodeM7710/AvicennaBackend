@@ -5,6 +5,7 @@ import requestBlock from "../blocks/request.js";
 import conditionBlock from "../blocks/condition.js";
 import setVarBlock from "../blocks/setVar.js";
 import manipulateTextBlock from "../blocks/manipulateText.js";
+import sendErrorBlock from"../blocks/error.js";
 
 /* -------------------------
    1️⃣  Centralized block registry
@@ -16,6 +17,7 @@ const BLOCKS = {
   request: requestBlock,
   setVar: setVarBlock,
   manipulateText: manipulateTextBlock,
+  error: sendErrorBlock,
 };
 
 /* -------------------------
