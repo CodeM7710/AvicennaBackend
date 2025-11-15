@@ -35,8 +35,8 @@ app.use((req, res, next) => {
       .status(429)
       .json({ 
           success: false,
-          error: "Too many requests. Please wait 1 minute and try again.",
           status: 429,
+          message: "Too many requests. Please wait 1 minute and try again.",
           metadata: {
             timestamp: new Date().toISOString(),
           },
