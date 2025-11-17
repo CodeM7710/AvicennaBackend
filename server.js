@@ -11,6 +11,8 @@ const rateLimitMap = new Map();
 const LIMIT = 30; // max requests
 const WINDOW_MS = 60_000; // 1 minute
 
+app.get("/health", (req, res) => res.json({ ok: true }));
+
 app.use((req, res, next) => {
   const ip =
     req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
