@@ -5,6 +5,7 @@ import { registerFlowRoutes } from "./flows/routes.js";
 
 // --- Railway-ready Express server ---
 const app = express();
+console.log("PORT env:", process.env.PORT);
 
 // Railway sets the PORT environment variable dynamically
 const PORT = process.env.PORT || 3001;
