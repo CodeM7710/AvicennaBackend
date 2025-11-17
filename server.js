@@ -10,17 +10,22 @@ export const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// --- Railway-ready Express server ---
+// --- Express app ---
 const app = express();
-const PORT = process.env.PORT || 3001;
-console.log("PORT env:", process.env.PORT);
+
+// --- Railway PORT ONLY (no fallback) ---
+const PORT = process.env.PORT;
+if (!PORT) {
+  throw new Error("PORT env variable is not set by Railway!");
+}
+console.log("🚀 Server will listen on PORT:", PORT);
 
 // --- Basic in-memory rate limiter ---
 const rateLimitMap = new Map();
 const LIMIT = 30; // max requests
 const WINDOW_MS = 60_000; // 1 minute
 
-// --- Health check endpoint ---
+// --- Health check ---
 app.get("/health", (req, res) => res.json({ ok: true }));
 
 // --- Rate limiter middleware ---
@@ -56,7 +61,7 @@ app.use((req, res, next) => {
 
 // --- Start server immediately ---
 app.listen(PORT, () => {
-  console.log(`🚀 Server listening on port ${PORT}`);
+  console.log(`🚀 Server listening on PORT ${PORT}`);
 });
 
 // --- Register dynamic flow routes asynchronously ---
