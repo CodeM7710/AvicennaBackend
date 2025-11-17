@@ -1,0 +1,5 @@
+[phases.setup]
+nixLibs = []
+aptPkgs = []
+modules = []
+nodeModulesCache = false
