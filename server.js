@@ -2,25 +2,28 @@
 import express from "express";
 import "dotenv/config";
 import { registerFlowRoutes } from "./flows/routes.js";
+import { createClient } from "@supabase/supabase-js";
+
+// --- Initialize Supabase client ---
+export const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 // --- Railway-ready Express server ---
 const app = express();
-console.log("PORT env:", process.env.PORT);
-
-// Railway sets the PORT environment variable dynamically
 const PORT = process.env.PORT || 3001;
-if (!PORT) {
-  throw new Error("process.env.PORT is not set. Railway sets this automatically.");
-}
+console.log("PORT env:", process.env.PORT);
 
 // --- Basic in-memory rate limiter ---
 const rateLimitMap = new Map();
 const LIMIT = 30; // max requests
 const WINDOW_MS = 60_000; // 1 minute
 
-// Health check endpoint for Railway
+// --- Health check endpoint ---
 app.get("/health", (req, res) => res.json({ ok: true }));
 
+// --- Rate limiter middleware ---
 app.use((req, res, next) => {
   const ip =
     req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
@@ -30,7 +33,6 @@ app.use((req, res, next) => {
   const now = Date.now();
   const record = rateLimitMap.get(ip) || { count: 0, start: now };
 
-  // Reset window
   if (now - record.start > WINDOW_MS) {
     record.count = 0;
     record.start = now;
@@ -52,12 +54,24 @@ app.use((req, res, next) => {
   next();
 });
 
-// --- Register dynamic flow routes ---
-(async () => {
-  await registerFlowRoutes(app);
+// --- Start server immediately ---
+app.listen(PORT, () => {
+  console.log(`🚀 Server listening on port ${PORT}`);
+});
 
-  // Start server
-  app.listen(PORT, () => {
-    console.log(`Server listening on port ${PORT}`);
-  });
+// --- Register dynamic flow routes asynchronously ---
+(async () => {
+  try {
+    console.log("Registering dynamic routes...");
+    // Add a timeout so it doesn’t hang forever
+    await Promise.race([
+      registerFlowRoutes(app),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Flow registration timed out")), 10000)
+      ),
+    ]);
+    console.log("✅ Dynamic routes registered");
+  } catch (err) {
+    console.error("🔥 Failed to register dynamic routes:", err);
+  }
 })();
