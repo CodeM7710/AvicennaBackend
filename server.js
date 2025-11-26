@@ -1,6 +1,7 @@
 // server.js
 import express from "express";
 import "dotenv/config";
+import cors from "cors";
 import { registerFlowRoutes } from "./flows/routes.js";
 
 const app = express();
@@ -11,6 +12,7 @@ const rateLimitMap = new Map();
 const LIMIT = 30; // max requests
 const WINDOW_MS = 60_000; // 1 minute
 
+app.use(cors());
 app.get("/health", (req, res) => res.json({ ok: true }));
 
 app.use((req, res, next) => {
