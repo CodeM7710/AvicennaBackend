@@ -50,9 +50,13 @@ app.use((req, res, next) => {
 
 // === Register your dynamic flow routes ===
 (async () => {
-  await registerFlowRoutes(app);
+  try {
+    await registerFlowRoutes(app);
 
-  app.listen(PORT, () => {
-    console.log(`Server listening on port ${PORT}`);
-  });
+    app.listen(PORT, () => {
+      console.log(`Server listening on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error("Failed to start server:", err);
+  }
 })();
