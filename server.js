@@ -3,6 +3,8 @@ import express from "express";
 import "dotenv/config";
 import cors from "cors";
 import { registerFlowRoutes } from "./flows/routes.js";
+import { supabase } from "./lib/supabase-client.js";
+import { trackRequestStart, apiRequestLogger } from "./flows/logging.js";
 
 const app = express();
 const PORT = 8080;
@@ -49,6 +51,9 @@ app.use((req, res, next) => {
 
   next();
 });
+
+app.use(trackRequestStart);
+app.use(apiRequestLogger());
 
 // === Register your dynamic flow routes ===
 (async () => {
