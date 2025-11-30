@@ -5,6 +5,7 @@ import requestBlock from "../blocks/request.js";
 import conditionBlock from "../blocks/condition.js";
 import setVarBlock from "../blocks/setVar.js";
 import manipulateTextBlock from "../blocks/manipulateText.js";
+import manipulateImageBlock from "../blocks/manipulateImage.js";
 import sendErrorBlock from"../blocks/error.js";
 
 /* -------------------------
@@ -17,6 +18,7 @@ const BLOCKS = {
   request: requestBlock,
   setVar: setVarBlock,
   manipulateText: manipulateTextBlock,
+  manipulateImage: manipulateImageBlock,
   error: sendErrorBlock,
 };
 
