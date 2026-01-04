@@ -1,0 +1,37 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Dependency directories
+node_modules/
+
+# Build artifacts
+build/
+dist/
+out/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# VSCode settings (if desired)
+.vscode/
+
+# Editor/OS temporary files
+.DS_Store
+Thumbs.db
