@@ -1,5 +1,6 @@
 // flows/logging.js
 import { supabase } from "../lib/supabase-client.js";
+import { appendFlowAnalytics } from "./analytics.js";
 
 /**
  * Append a log entry to a flow's request_logs JSONB column.
@@ -102,6 +103,7 @@ export function apiRequestLogger() {
       };
 
       appendFlowLog(flowData.id, log);
+      appendFlowAnalytics(flowData.id, res.statusCode);
     });
 
     next();
