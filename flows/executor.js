@@ -9,6 +9,7 @@ import manipulateImageBlock from "../blocks/manipulateImage.js";
 import sendErrorBlock from"../blocks/error.js";
 import encodeTextBlock from"../blocks/encodeText.js";
 import decodeTextBlock from"../blocks/decodeText.js";
+import generateTextBlock from "../blocks/generateText.js";
 
 /* -------------------------
    1️⃣  Centralized block registry
@@ -23,7 +24,8 @@ const BLOCKS = {
   manipulateImage: manipulateImageBlock,
   error: sendErrorBlock,
   encodeText: encodeTextBlock,
-  encodeText: decodeTextBlock,
+  decodeText: decodeTextBlock,
+  generateText: generateTextBlock,
 };
 
 /* -------------------------
