@@ -70,7 +70,15 @@ export async function registerFlowRoutes(app) {
       if (!decompressed) throw new Error("Failed to decompress flow");
 
       const flow = JSON.parse(decompressed);
-      const context = { variables: {}, flow };
+      const flowTree = JSON.parse(decompressed);
+
+      const context = {
+        variables: {},
+        flow: {
+          id: row.id,
+          user_id: row.user_id,
+        },
+      };
 
       flow?.data?.queryParams?.forEach(p => {
         context.variables[p.key] = p.default_value ?? "";
