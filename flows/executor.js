@@ -10,6 +10,7 @@ import sendErrorBlock from"../blocks/error.js";
 import encodeTextBlock from"../blocks/encodeText.js";
 import decodeTextBlock from"../blocks/decodeText.js";
 import generateTextBlock from "../blocks/generateText.js";
+import sendEmailBlock from "../blocks/sendEmail.js";
 
 /* -------------------------
    1️⃣  Centralized block registry
@@ -26,6 +27,7 @@ const BLOCKS = {
   encodeText: encodeTextBlock,
   decodeText: decodeTextBlock,
   generateText: generateTextBlock,
+  sendEmail: sendEmailBlock,
 };
 
 /* -------------------------
