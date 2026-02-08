@@ -5,6 +5,7 @@ import cors from "cors";
 import { registerFlowRoutes } from "./flows/routes.js";
 import { supabase } from "./lib/supabase-client.js";
 import { trackRequestStart, apiRequestLogger } from "./flows/logging.js";
+import crypto from "crypto"; // <-- ADD
 
 const app = express();
 const PORT = 8080;
@@ -16,6 +17,43 @@ const WINDOW_MS = 60_000; // 1 minute
 
 app.use(cors());
 app.get("/health", (req, res) => res.json({ ok: true }));
+
+/* ===========================
+   ADD: API key parsing layer
+   =========================== */
+app.use(async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  req.apiAuth = null;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return next();
+  }
+
+  const rawKey = authHeader.replace("Bearer ", "").trim();
+
+  try {
+    const hash = crypto
+      .createHmac("sha256", process.env.API_KEY_HASH_SECRET)
+      .update(rawKey)
+      .digest("hex");
+
+    req.apiAuth = {
+      rawKey,
+      hash
+    };
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      status: 500,
+      message: "API key processing failed"
+    });
+  }
+
+  next();
+});
+/* ===========================
+   END ADD
+   =========================== */
 
 app.use((req, res, next) => {
   const ip =
