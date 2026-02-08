@@ -11,11 +11,6 @@ export default {
   },
 
   async run(node, req, res, context) {
-    // ---- FIX: ensure variables context is initialized ----
-    if (!context.variables || typeof context.variables !== "object") {
-      context.variables = {};
-    }
-
     const flow = context.flow || {};
     const defaults = {};
 
@@ -24,68 +19,40 @@ export default {
       if (p.key) defaults[p.key] = p.default_value;
     });
 
-    // ---- FIX: expose params + endpoint safely for interpolation ----
-    context.variables.params = context.params || {};
-    context.variables.endpoint = context.endpoint || {};
-    context.variables.flow = flow;
-
-    // Build JSON response from key/value rows
-    const responseBody = {};
-
-    if (Array.isArray(node.data?.jsonResponse)) {
-      node.data.jsonResponse.forEach(pair => {
-        if (!pair?.key) return;
-
-        const interpolatedValue = interpolate(
-          String(pair.value ?? ""),
-          context,
-          defaults
-        );
-
-        responseBody[pair.key] = interpolatedValue;
-      });
-    }
-
-    // Existing message interpolation (kept for compatibility)
+    // Interpolate message
     const message = interpolate(
       node.data?.message || "",
       context,
       defaults
     );
 
-    // Optional structured data payload (kept)
+    // Optional structured data payload
     let data = {};
     if (node.data?.data) {
-      const interpolatedData = interpolate(
-        JSON.stringify(node.data.data),
-        context,
-        defaults
-      );
+      const interpolatedData = interpolate(JSON.stringify(node.data.data), context, defaults);
       try {
         data = JSON.parse(interpolatedData);
-      } catch {
-        console.warn(
-          "⚠️ Respond block data is not valid JSON:",
-          interpolatedData
-        );
+      } catch (err) {
+        console.warn("⚠️ Respond block data is not valid JSON:", interpolatedData);
       }
     }
 
-    const statusCode = node.data?.status
-      ? Number(node.data.status)
-      : 200;
+    // Standardized JSON response
+    const statusCode = node.data?.status ? Number(node.data.status) : 200;
 
     const output = {
       success: true,
       status: statusCode,
-      ...responseBody,
+      message,
       metadata: {
         timestamp: new Date().toISOString(),
       },
     };
 
+    // Send response only once
     if (!res.headersSent) res.json(output);
 
+    // Return standardized output for flow chaining
     return {
       output,
       sent: true,
