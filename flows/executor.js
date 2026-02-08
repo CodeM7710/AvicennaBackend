@@ -42,6 +42,35 @@ export async function runFlow(node, req, res, context = {}) {
   // Initialize context once (root-level defaults + query params)
   if (!context._varsInitialized) {
     context._varsInitialized = true;
+    // ---- expose runtime variables for interpolation (NON-BREAKING)
+    context.variables = {
+      ...context.variables,
+
+      params: context.params,
+      flow: context.flow,
+      endpoint: context.endpoint,
+
+      // request data
+      req: {
+        query: req.query,
+        body: req.body,
+        headers: req.headers,
+        method: req.method,
+        url: req.originalUrl,
+      },
+
+      // alias for consistency with docs / UI
+      api: {
+        params: context.params,
+        request: {
+          body: req.body,
+          query: req.query,
+          headers: req.headers,
+        },
+      },
+
+      local: context.local || {},
+    };
   
     // Ensure sections exist
     if (!context.variables) context.variables = {};
@@ -78,6 +107,20 @@ export async function runFlow(node, req, res, context = {}) {
   } else {
     console.warn(`⚠️ No handler found for block type "${node.type}"`);
   }
+
+  if (block && typeof block.run === "function") {
+    const result = await block.run(node, req, res, context);
+  
+    // Collect returned output (for chaining/logging/etc.)
+    if (result?.output !== undefined) outputs.push(result.output);
+  
+    // ---- FIX: store request/response outputs ----
+    if (node.type === "request") {
+      // make sure api object exists
+      context.variables.api = context.variables.api || {};
+      context.variables.api.response = result.output || {};
+    }
+  }  
 
   /* -------------------------
      4️⃣  Run child nodes recursively
