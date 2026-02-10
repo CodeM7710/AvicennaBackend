@@ -78,7 +78,7 @@ export default {
     const output = {
       success: true,
       status: statusCode,
-      ...responseBody,
+      message,
       metadata: {
         timestamp: new Date().toISOString(),
       },
