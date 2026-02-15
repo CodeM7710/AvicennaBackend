@@ -61,7 +61,7 @@ async function authorizeApiRequest(req, subdomain) {
   }
 
   if (!req.apiAuth) {
-    return { ok: false, status: 401, message: "Missing API key" };
+    return { ok: false, status: 401, message: "Request unauthorized: API key required" };
   }
 
   const { data, error } = await supabase
