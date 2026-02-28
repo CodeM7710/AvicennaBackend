@@ -2,16 +2,15 @@ import { interpolate } from "../lib/vars.js";
 
 export default {
   name: "respond",
-  description: "Sends an interpolated message back to the client",
+  description: "Sends a JSON response back to the client",
 
   schema: {
-    inputs: ["message", "data"],
+    inputs: ["jsonResponse"],
     outputs: ["output"],
     category: "output",
   },
 
   async run(node, req, res, context) {
-    // ---- FIX: ensure variables context is initialized ----
     if (!context.variables || typeof context.variables !== "object") {
       context.variables = {};
     }
@@ -19,22 +18,34 @@ export default {
     const flow = context.flow || {};
     const defaults = {};
 
-    // Load query param defaults from flow
     flow.data?.queryParams?.forEach(p => {
       if (p.key) defaults[p.key] = p.default_value;
     });
 
-    // ---- FIX: expose params + endpoint safely for interpolation ----
     context.variables.params = context.params || {};
     context.variables.endpoint = context.endpoint || {};
     context.variables.flow = flow;
 
-    // Build JSON response from key/value rows
+    // ---- Backwards compatibility ----
+    let jsonResponse = node.data?.jsonResponse;
+
+    if (
+      (!Array.isArray(jsonResponse) || jsonResponse.length === 0) &&
+      node.data?.message
+    ) {
+      jsonResponse = [
+        {
+          key: "message",
+          value: node.data.message,
+        },
+      ];
+    }
+
     const responseBody = {};
 
-    if (Array.isArray(node.data?.jsonResponse)) {
-      node.data.jsonResponse.forEach(pair => {
-        if (!pair?.key) return;
+    if (Array.isArray(jsonResponse)) {
+      for (const pair of jsonResponse) {
+        if (!pair?.key) continue;
 
         const interpolatedValue = interpolate(
           String(pair.value ?? ""),
@@ -42,32 +53,21 @@ export default {
           defaults
         );
 
-        responseBody[pair.key] = interpolatedValue;
-      });
-    }
+        let finalValue = interpolatedValue;
 
-    // Existing message interpolation (kept for compatibility)
-    const message = interpolate(
-      node.data?.message || "",
-      context,
-      defaults
-    );
+        if (interpolatedValue === "true") finalValue = true;
+        else if (interpolatedValue === "false") finalValue = false;
+        else if (!isNaN(interpolatedValue) && interpolatedValue.trim() !== "")
+          finalValue = Number(interpolatedValue);
+        else {
+          try {
+            finalValue = JSON.parse(interpolatedValue);
+          } catch {
+            finalValue = interpolatedValue;
+          }
+        }
 
-    // Optional structured data payload (kept)
-    let data = {};
-    if (node.data?.data) {
-      const interpolatedData = interpolate(
-        JSON.stringify(node.data.data),
-        context,
-        defaults
-      );
-      try {
-        data = JSON.parse(interpolatedData);
-      } catch {
-        console.warn(
-          "⚠️ Respond block data is not valid JSON:",
-          interpolatedData
-        );
+        responseBody[pair.key] = finalValue;
       }
     }
 
@@ -75,19 +75,12 @@ export default {
       ? Number(node.data.status)
       : 200;
 
-    const output = {
-      success: true,
-      status: statusCode,
-      message,
-      metadata: {
-        timestamp: new Date().toISOString(),
-      },
-    };
-
-    if (!res.headersSent) res.json(output);
+    if (!res.headersSent) {
+      res.status(statusCode).json(responseBody);
+    }
 
     return {
-      output,
+      output: responseBody,
       sent: true,
     };
   },
