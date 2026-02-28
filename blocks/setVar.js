@@ -3,14 +3,14 @@ export default {
   description: "Creates or updates a variable in the context",
 
   schema: {
-    inputs: ["name", "value"],
+    inputs: ["referenceVar", "value"],
     outputs: ["next"],
     category: "logic",
   },
 
   async run(node, req, res, context = {}) {
     const d = node.data || {};
-    const rawName = (d.name || "").trim();
+    const rawName = (d.referenceVar || "").trim();
     if (!rawName) {
       console.warn("⚠️ No variable name provided for setVar block");
       return { output: null };
@@ -25,8 +25,6 @@ export default {
 
     // Save into local scope
     context.local[rawName] = newValue;
-
-    console.log(`🟢 Local variable set: ${rawName} =`, newValue);
 
     return {
       output: { [rawName]: newValue },
